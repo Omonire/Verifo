@@ -1,4 +1,4 @@
-"""Secure file storage abstraction.
+﻿"""Secure file storage abstraction.
 
 Provides a pluggable StorageBackend (local disk for the MVP, object stores
 later) with:
@@ -11,6 +11,7 @@ import io
 import os
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
 
@@ -49,6 +50,16 @@ class StorageBackend(ABC):
     @abstractmethod
     def resolve(self, tenant_id: str, storage_path: str) -> Path:
         """Return the absolute, tamper-checked file path for a stored item."""
+        pass
+
+    @abstractmethod
+    def materialize(self, tenant_id: str, storage_path: str) -> tuple[str, Callable | None]:
+        """Return a filesystem path whose bytes are readable by downstream tools.
+
+        For non-encrypted backends this is the stored file itself (cleanup None).
+        For encrypted at-rest backends this writes a temporary decrypted copy and
+        returns a cleanup callable; callers must invoke it once done.
+        """
         pass
 
 
@@ -104,6 +115,25 @@ class LocalStorage(StorageBackend):
     def resolve(self, tenant_id: str, storage_path: str) -> Path:
         """Return the absolute filesystem path for a stored item (safe)."""
         return self._resolve(tenant_id, storage_path)
+
+    def materialize(self, tenant_id: str, storage_path: str) -> tuple[str, Callable | None]:
+        """Readable path for parsers; decrypts to a temp copy when encrypted."""
+        target = self._resolve(tenant_id, storage_path)
+        if not target.is_file():
+            raise FileNotFoundError(storage_path)
+        if not self.cipher or not self.encrypt:
+            return str(target), None
+        raw = self.cipher.decrypt(target.read_bytes())
+        tmp_dir = self.root / ".tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp = tmp_dir / f"{uuid.uuid4().hex}{target.suffix}"
+        tmp.write_bytes(raw)
+
+        def cleanup():
+            if tmp.is_file():
+                tmp.unlink(missing_ok=True)
+
+        return str(tmp), cleanup
 
 
 def get_storage() -> StorageBackend:

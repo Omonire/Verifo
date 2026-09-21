@@ -52,6 +52,30 @@ def test_encryption_requires_valid_key(tmp_path):
         LocalStorage(tmp_path, encrypt=True, key="not-a-fernert-key")
 
 
+def test_materialize_returns_readable_plaintext(tmp_path):
+    """Parsers must get plain bytes even when storage is encrypted at rest."""
+    key = Fernet.generate_key().decode()
+    storage = LocalStorage(tmp_path, encrypt=True, key=key)
+    spath = storage.save("t", "docs", "doc.pdf", b"%PDF-1.7 payload")
+    readable, cleanup = storage.materialize("t", spath)
+    try:
+        assert open(readable, "rb").read() == b"%PDF-1.7 payload"
+        # The materialized copy is plaintext, not ciphertext.
+        assert b"payload" in open(readable, "rb").read()
+    finally:
+        if cleanup:
+            cleanup()
+    assert not __import__("os").path.exists(readable)
+
+
+def test_materialize_plain_backend_returns_stored_path(tmp_path):
+    storage = LocalStorage(tmp_path, encrypt=False)
+    spath = storage.save("t", "docs", "doc.pdf", b"%PDF-1.7 payload")
+    readable, cleanup = storage.materialize("t", spath)
+    assert readable == str(storage.resolve("t", spath))
+    assert cleanup is None
+
+
 def test_zip_extraction_preserves_allowed_exts_only(app):
     import io
     import zipfile

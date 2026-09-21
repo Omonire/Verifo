@@ -63,8 +63,9 @@ def _engine():
     return build_engine(provider=provider)
 
 
-def _asset_path(org_id: str, storage_path: str) -> str:
-    return str(get_storage().resolve(org_id, storage_path))
+def _materialize(org_id: str, storage_path: str) -> tuple[str, "Callable | None"]:
+    """Readable path for the analyzers, with an optional temp cleanup to run."""
+    return get_storage().materialize(org_id, storage_path)
 
 
 def run_single_verification(verification_id: str, ai_evidence=None):
@@ -76,7 +77,7 @@ def run_single_verification(verification_id: str, ai_evidence=None):
     ver.status = VerificationStatus.PROCESSING
     db.session.commit()
 
-    asset_path = _asset_path(ver.organization_id, ver.storage_path)
+    asset_path, cleanup = _materialize(ver.organization_id, ver.storage_path)
     claimed = []
     ref = None
     if ver.reference_id:
@@ -88,12 +89,16 @@ def run_single_verification(verification_id: str, ai_evidence=None):
                 "metadata": ref.fingerprint.get("baseline", {}) if ref.fingerprint else {},
             })
 
-    report = _engine().run(
-        [asset_path], claimed, ver.organization_id,
-        config=_org_config(ver.organization_id),
-        database_lookup=build_lookup(ver.organization_id),
-        supplemental_fields=_ai_evidence_fields(ai_evidence),
-    )
+    try:
+        report = _engine().run(
+            [asset_path], claimed, ver.organization_id,
+            config=_org_config(ver.organization_id),
+            database_lookup=build_lookup(ver.organization_id),
+            supplemental_fields=_ai_evidence_fields(ai_evidence),
+        )
+    finally:
+        if cleanup:
+            cleanup()
     ver.status = (
         VerificationStatus.VERIFIED if report.verdict == "verified"
         else VerificationStatus.REVIEW)
@@ -122,7 +127,7 @@ def run_bulk_item(item_id: str):
     if not item:
         return
     job = None
-    asset = _asset_path(item.organization_id, item.storage_path)
+    asset, cleanup = _materialize(item.organization_id, item.storage_path)
     claimed = []
     ref = None
     if item.reference_id:
@@ -137,11 +142,15 @@ def run_bulk_item(item_id: str):
     item.status = ItemStatus.PROCESSING
     db.session.commit()
     try:
-        report = _engine().run(
-            [asset], claimed, item.organization_id,
-            config=_org_config(item.organization_id),
-            database_lookup=build_lookup(item.organization_id),
-        )
+        try:
+            report = _engine().run(
+                [asset], claimed, item.organization_id,
+                config=_org_config(item.organization_id),
+                database_lookup=build_lookup(item.organization_id),
+            )
+        finally:
+            if cleanup:
+                cleanup()
         item.score = report.breakdown.total
         item.snapshot = {
             "conclusion": _field_conclusion(report.breakdown.findings),

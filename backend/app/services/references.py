@@ -37,11 +37,15 @@ def process_reference(organization_id, *, filename: str, data: bytes,
     storage = get_storage()
     path = storage.save(organization_id, "references", filename, data)
     checksum = sha256_hex(data)
-    abs_path = str(storage.resolve(organization_id, path))
+    asset_path, cleanup = storage.materialize(organization_id, path)
 
     ocr = TextLayerOCR()
-    fields = [f for f in ocr.extract(abs_path) if not f.key.startswith("doc_")]
-    baseline = capture_baseline(abs_path)
+    try:
+        fields = [f for f in ocr.extract(asset_path) if not f.key.startswith("doc_")]
+        baseline = capture_baseline(asset_path)
+    finally:
+        if cleanup:
+            cleanup()
     # All-matches textual fingerprint of the reference document.
     canonical = "\n".join(f"{f.key}={normalize_value(f.value)}" for f in fields)
     fingerprint = {
