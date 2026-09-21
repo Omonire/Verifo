@@ -23,6 +23,9 @@
       <span class="avatar" id="user-avatar">…</span>
       <button type="button" class="btn btn-ghost btn-sm" id="sign-out">Sign out</button>
     </div>
+    <button type="button" class="topbar-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
   </div>
 </nav>
 <main class="container app-main">
@@ -70,6 +73,24 @@
     document.getElementById("sign-out").addEventListener("click", function () {
       Verifo.signOut();
     });
+
+    // Mobile nav: toggle the hamburger dropdown
+    var navToggle = document.getElementById("nav-toggle");
+    var appNav = document.getElementById("app-nav");
+    if (navToggle && appNav) {
+      navToggle.addEventListener("click", function () {
+        var open = appNav.classList.toggle("open");
+        navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        navToggle.querySelector("span").textContent = open ? "close" : "menu";
+      });
+      appNav.addEventListener("click", function (e) {
+        if (e.target.tagName === "A") {
+          appNav.classList.remove("open");
+          navToggle.setAttribute("aria-expanded", "false");
+          navToggle.querySelector("span").textContent = "menu";
+        }
+      });
+    }
   })();
 </script>
 {% block scripts %}{% endblock %}
