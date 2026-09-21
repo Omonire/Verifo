@@ -152,9 +152,9 @@ def _pending(what: str, phase: str):
 
 
 def seed_document_types(org, actor):
-    """Document types: Transcript/Certificate/Clearance/Admission Letter per year."""
+    """Document types: Transcript/Certificate/Clearance/Admission Letter."""
     try:
-        from app.models.document_type import DocumentType
+        from app.models.domain import DocumentType
         from app.extensions import db
         from app.models.common import StatusCode
     except ImportError:
@@ -162,62 +162,99 @@ def seed_document_types(org, actor):
         return []
 
     specs = [
-        ("Transcript",      2026, True),
-        ("Transcript",      2025, True),
-        ("Certificate",     2026, True),
-        ("Clearance Form",  2026, True),
-        ("Admission Letter", 2026, True),
+        ("Transcript — 2026",        "TRANSCRIPT_2026",
+         ["student_name", "matric_no", "programme", "cgpa", "session", "level"]),
+        ("Certificate — 2026",       "CERTIFICATE_2026",
+         ["student_name", "matric_no", "programme"]),
+        ("Clearance Form — 2026",    "CLEARANCE_2026",
+         ["student_name", "matric_no", "programme", "session"]),
+        ("Admission Letter — 2026",  "ADMISSION_2026",
+         ["student_name", "matric_no", "programme", "session", "level", "date_of_birth"]),
     ]
     created = []
-    for name, year, active in specs:
+    for name, code, fields in specs:
         existing = DocumentType.query.filter_by(
-            organization_id=org.id, name=name, year=year
-        ).first()
+            organization_id=org.id, code=code).first()
         if existing:
             created.append(existing)
             continue
         dt = DocumentType(
             organization_id=org.id,
             name=name,
-            year=year,
-            status=StatusCode.ACTIVE if active else StatusCode.ARCHIVED,
-            created_by=actor.id,
+            code=code,
+            fields=fields,
+            status=StatusCode.ACTIVE,
         )
         db.session.add(dt)
         db.session.flush()
         created.append(dt)
-        log.info("document type: %s %s", name, year)
+        log.info("document type: %s", name)
     return created
 
 
 def seed_references(org, actor, doc_types):
-    """Generate trusted reference PDFs (ReportLab) + fingerprint + extracted fields.
+    """Register genuine demo references in the org's in-library registry.
 
-    Real generation logic arrives with Phase 2; this section demonstrates the
-    contract the ReferenceDocument model will hold.
+    Renders authentic-looking originals via the Phase 9 demo document service
+    (ReportLab + PyMuPDF) and registers them exactly like a staff upload
+    (process_reference) so the verification pipeline has trusted benchmarks to
+    compare against and the database verifier has issued records to match.
     """
     try:
-        from reportlab.pdfgen import canvas  # noqa: F401
-    except ImportError:
-        log.warning("reportlab missing - references skipped (pip install -r requirements.txt)")
+        from app.models.domain import DocumentType, ReferenceDocument
+        from app.services.demo import ADMISSION_GENUINE, TRANSCRIPT_GENUINE, \
+            render_admission_pdf, render_transcript_pdf
+        from app.services.references import process_reference
+        from app.extensions import db
+    except ImportError as exc:  # noqa: BLE001
+        log.warning("reference seeding unavailable: %s", exc)
         return []
 
-    # Phase 2 will:
-    #   1. build a PDF per doc_type via DocumentGenerator
-    #   2. PyMuPDF-extract layout + field anchors -> ExtractedField rows
-    #   3. SHA-256 fingerprint + structural hash
-    #   4. write ReferenceDocument rows with template characteristics JSON
-    log.info("reference generator active once Phase 2 lands")
-    return []
+    def _doc_type(code: str):
+        return DocumentType.query.filter_by(
+            organization_id=org.id, code=code).first()
+
+    specs = [
+        ("TRANSCRIPT_2026", "Demo Genuine Transcript",
+         render_transcript_pdf(TRANSCRIPT_GENUINE), "demo-genuine-transcript.pdf"),
+        ("ADMISSION_2026", "Demo Genuine Admission Letter",
+         render_admission_pdf(ADMISSION_GENUINE), "demo-genuine-admission.pdf"),
+    ]
+
+    created = []
+    for code, title, data, filename in specs:
+        doc_type = _doc_type(code)
+        if not doc_type:
+            log.info("skip '%s' (no document type %s)", title, code)
+            continue
+        ref_code = f"DEMO-{code}"
+        existing = ReferenceDocument.query.filter_by(
+            organization_id=org.id, ref_code=ref_code).first()
+        if existing:
+            created.append(existing)
+            continue
+        payload = process_reference(
+            org.id, filename=filename, data=data,
+            document_type_id=doc_type.id, title=title, ref_code=ref_code,
+            fields_config=doc_type.fields,
+        )
+        ref = ReferenceDocument(**payload)
+        db.session.add(ref)
+        db.session.flush()
+        created.append(ref)
+        log.info("reference: %s (%s, %d extracted fields)",
+                 title, ref_code, len(ref.extracted_fields or []))
+    return created
 
 
 def seed_counterfeits(org, actor, references):
-    """Controlled counterfeit copies generated from the references."""
-    try:
-        from app.models.reference import ReferenceDocument  # noqa: F401
-    except ImportError:
-        pass
-    log.info("counterfeit seeding active once Phase 2 references land")
+    """Controlled counterfeit copies generated from the references.
+
+    Counterfeits are served on-demand via `GET /api/v1/demo/sample` (Phase 9:
+    demo service) rather than persisted as library records — they are never
+    presented as real documents.
+    """
+    log.info("demo counterfeits served on demand via /demo/sample")
     return []
 
 
@@ -254,8 +291,10 @@ def amenities(org, actor):
     from app.extensions import db
 
     doc_types = seed_document_types(org, actor)
-    log.info("amenities block complete (%d document types)", len(doc_types))
-    return {"document_types": doc_types}
+    refs = seed_references(org, actor, doc_types)
+    log.info("amenities block complete (%d document types, %d references)",
+             len(doc_types), len(refs))
+    return {"document_types": doc_types, "references": refs}
 
 
 # --------------------------------------------------------------------------

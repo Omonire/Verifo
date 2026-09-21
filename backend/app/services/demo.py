@@ -153,11 +153,11 @@ def render_certificate_pdf(record: DemoRecord, *, filename="demo-certificate.pdf
     return render_transcript_pdf(record, filename=filename)
 
 
-def make_counterfeit(reference_bytes: bytes, record: DemoRecord) -> bytes:
-    """Re-render the same layout as a counterfeit: altered details + a
+def make_counterfeit(kind: str, record: DemoRecord) -> bytes:
+    """Render the same layout as a counterfeit: altered details + a
     photocopier-style producer, so both field comparison and integrity
     produce divergent-but-honest signals."""
-    data = render_transcript_pdf(record)
+    data = render_for_kind(kind, record)
     with fitz.open(stream=data, filetype="pdf") as doc:
         doc.set_metadata({
             "producer": "CamScanner-Mobile", "creator": "Scanner-Plus v4.2",
