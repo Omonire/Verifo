@@ -314,6 +314,8 @@ def run_seed(sample=None):
 
     org = bootstrap()
 
+    _platform_bootstrap()
+
     if not want_sample:
         db.session.commit()
         log.info("bootstrap seed complete.")
@@ -327,6 +329,29 @@ def run_seed(sample=None):
     db.session.commit()
     log.info("full demo seed complete.")
     return {"mode": "sample", "organization": org.slug}
+
+
+def _platform_bootstrap():
+    """Superadmin promotion + site settings, running in every seed mode.
+
+    `VERIFO_SUPERADMIN_EMAIL` (defaults to the demo admin) marks the account
+    as the platform owner; the platform settings row is materialized so the
+    site always renders a branded name/footer even before the first admin
+    touches the superadmin panel.
+    """
+    from app.models.platform import ensure_platform_settings
+    from app.models.user import User
+
+    ensure_platform_settings()
+
+    email = (os.environ.get("VERIFO_SUPERADMIN_EMAIL", "").strip()
+             or os.environ.get("VERIFO_DEMO_ADMIN_EMAIL", "").strip())
+    if not email:
+        return
+    user = User.query.filter_by(email=email.lower()).first()
+    if user and not user.is_superadmin:
+        user.is_superadmin = True
+        log.info("promoted %s to platform superadmin", email)
 
 
 if __name__ == "__main__":

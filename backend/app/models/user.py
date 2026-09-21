@@ -60,5 +60,6 @@ class User(db.Model, PkUuidMixin, TimestampsMixin):
             "email": self.email,
             "full_name": self.full_name,
             "status": self.status.value if self.status else None,
+            "is_superadmin": bool(self.is_superadmin),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

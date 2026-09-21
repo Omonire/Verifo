@@ -11,6 +11,7 @@ from .health import health_bp
 from .jobs import jobs_bp
 from .org import org_bp
 from .references import references_bp
+from .superadmin import superadmin_bp
 from .users import users_bp
 from .verifications import verifications_bp
 
@@ -23,6 +24,7 @@ api_v1_bp.register_blueprint(downloads_bp, url_prefix="/downloads")
 api_v1_bp.register_blueprint(documenttypes_bp, url_prefix="/document-types")
 api_v1_bp.register_blueprint(demo_bp, url_prefix="/demo")
 api_v1_bp.register_blueprint(references_bp, url_prefix="/references")
+api_v1_bp.register_blueprint(superadmin_bp, url_prefix="/superadmin")
 api_v1_bp.register_blueprint(verifications_bp, url_prefix="/verifications")
 api_v1_bp.register_blueprint(jobs_bp, url_prefix="/screening/jobs")
 api_v1_bp.register_blueprint(admin_bp, url_prefix="/admin")

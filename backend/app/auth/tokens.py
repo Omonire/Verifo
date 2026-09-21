@@ -11,10 +11,18 @@ TOKEN_TYPES = ("app", "download")
 
 def issue_app_token(user_id: str, organization_id: str, role: str) -> str:
     """Issue an app-scoped token carrying the active tenant context."""
+    claims = {"role": role, "token_type": "app"}
+    if organization_id:
+        claims["org"] = organization_id
     return create_access_token(
         identity=str(user_id),
-        additional_claims={"org": organization_id, "role": role, "token_type": "app"},
+        additional_claims=claims,
     )
+
+
+def issue_superadmin_token(user_id: str) -> str:
+    """Issue a platform-scoped token (no org claim) for a superadmin session."""
+    return issue_app_token(user_id, None, "SUPERADMIN")
 
 
 def issue_download_token(organization_id: str, storage_path: str) -> str:

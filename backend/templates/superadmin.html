@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Superadmin — Verifo{% endblock %}
+{% block body %}
+<nav class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="/superadmin">
+      <span class="brand-mark"><span class="material-symbols-outlined">admin_panel_settings</span></span>
+      Verifo <span class="badge badge-brand" style="margin-left:0.5rem">Superadmin</span>
+    </a>
+    <div class="topbar-nav">
+      <a href="/superadmin" class="on">Console</a>
+      <a href="/" target="_blank" rel="noopener">View site</a>
+    </div>
+    <div class="topbar-user">
+      <div class="user-meta">
+        <span class="n" id="sa-name">…</span>
+        <span class="o">Platform owner</span>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="sa-signout">Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container app-main">
+  <div class="page-header">
+    <div>
+      <p class="eyebrow">Platform control plane</p>
+      <h1>Superadmin console</h1>
+      <p class="subtitle">Brand the site, flip global switches, and manage every organization and account.</p>
+    </div>
+  </div>
+
+  <div class="tabs" id="sa-tabs">
+    <button type="button" class="tab-pill on" data-tab="site">Site</button>
+    <button type="button" class="tab-pill off" data-tab="switchboard">Switchboard</button>
+    <button type="button" class="tab-pill off" data-tab="orgs">Organizations</button>
+    <button type="button" class="tab-pill off" data-tab="users">Users</button>
+  </div>
+
+  <div id="tab-site" style="margin-top:1.5rem"></div>
+  <div id="tab-switchboard" style="margin-top:1.5rem" hidden></div>
+  <div id="tab-orgs" style="margin-top:1.5rem" hidden></div>
+  <div id="tab-users" style="margin-top:1.5rem" hidden></div>
+</main>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/superadmin.js"></script>
+{% endblock %}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Verifo{% endblock %}</title>
+  <title>{% block title %}{{ site.site_name }}{% endblock %}</title>
   <script>document.documentElement.classList.add("js");</script>
   <style>
     /* Inline critical-path splash: paints before any external asset resolves. */
@@ -48,12 +48,13 @@
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
+{% if site.announcement %}<div class="announcement">{{ site.announcement }}</div>{% endif %}
 <div class="splash" id="splash" aria-hidden="true">
   <div class="splash-bg"></div>
   <div class="splash-box">
     <div class="splash-mark"></div>
-    <div class="splash-name">Veri<em>fo</em></div>
-    <div class="splash-tag">Confirm documents are genuine — in seconds, not weeks.</div>
+    <div class="splash-name">{% if "Veri" in site.site_name %}Veri<em>{{ site.site_name[4:] }}</em>{% else %}{{ site.site_name }}{% endif %}</div>
+    <div class="splash-tag">{{ site.tagline }}</div>
     <div class="splash-track"></div>
   </div>
 </div>

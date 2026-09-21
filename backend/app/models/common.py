@@ -18,6 +18,7 @@ class RoleCode(str, enum.Enum):
     SUBMITTER = "SUBMITTER"
     OPERATOR = "OPERATOR"
     ADMIN = "ADMIN"
+    SUPERADMIN = "SUPERADMIN"
 
     @classmethod
     def values(cls) -> list[str]:

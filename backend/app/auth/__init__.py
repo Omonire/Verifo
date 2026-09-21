@@ -17,6 +17,7 @@ from .tokens import (
     decode_download_token,
     issue_app_token,
     issue_download_token,
+    issue_superadmin_token,
 )
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "is_authenticated",
     "issue_app_token",
     "issue_download_token",
+    "issue_superadmin_token",
     "require_auth",
     "require_org",
     "roles_required",

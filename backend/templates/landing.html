@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Verifo — Document verification that ships{% endblock %}
+{% block title %}{{ site.site_name }} — {{ site.tagline }}{% endblock %}
 {% block body %}
 <div class="landing">
   <nav class="topbar">
     <div class="container topbar-inner">
       <a class="brand" href="/">
         <span class="brand-mark"><span class="material-symbols-outlined">verified</span></span>
-        Verifo
+        {{ site.site_name }}
       </a>
       <div class="topbar-nav">
         <a href="#pipeline">How it works</a>
@@ -23,7 +23,7 @@
   <header class="hero">
     <div class="container">
       <span class="hero-badge">Anti-fraud credential verification for institutions</span>
-      <h1>Confirm documents are genuine — in seconds, not weeks.</h1>
+      <h1>{{ site.tagline }}</h1>
       <p class="sub">Verifo compares every submission against your institution's own trusted reference library, flags tampering, and gives your team a clear, auditable decision.</p>
       <div class="hero-actions">
         <a href="/request-access" class="btn btn-primary" style="padding:0.625rem 1.25rem">Request access</a>
@@ -147,8 +147,8 @@
 
   <footer class="site-footer">
     <div class="container">
-      <span>© {{ current_year() }} Verifo · <a href="/policy">Privacy Policy</a> · <a href="/terms">Terms &amp; Conditions</a></span>
-      <span>v1 API · <a href="/api/v1/health" class="mono">/api/v1/health</a></span>
+      <span>© {{ current_year() }} {{ site.footer_text }} · <a href="/policy">Privacy Policy</a> · <a href="/terms">Terms &amp; Conditions</a></span>
+      <span>{{ site.support_email }} · <a href="/api/v1/health" class="mono">/api/v1/health</a></span>
     </div>
   </footer>
 </div>

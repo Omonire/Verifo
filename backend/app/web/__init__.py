@@ -5,7 +5,7 @@ from functools import wraps
 from flask import Blueprint, redirect, render_template, url_for
 from flask_jwt_extended import verify_jwt_in_request
 
-from ..auth import current_role
+from ..auth import current_role, current_user_id
 from ..models.common import RoleCode
 
 web_bp = Blueprint("web", __name__)
@@ -32,7 +32,12 @@ def page_access(*roles: str):
 
 @web_bp.app_context_processor
 def inject_globals():
-    return {"current_year": lambda: datetime.now().year}
+    from ..models.platform import get_platform_settings
+
+    return {
+        "current_year": lambda: datetime.now().year,
+        "site": get_platform_settings(),
+    }
 
 
 def page(template, **kwargs):
@@ -62,7 +67,13 @@ def login_alias():
 
 @web_bp.get("/request-access")
 def request_access():
-    return page("request_access.html", active="request")
+    from ..models.platform import get_platform_settings
+
+    return page(
+        "request_access.html",
+        active="request",
+        registration_open=get_platform_settings().get("registration_open", True),
+    )
 
 
 @web_bp.get("/register")
@@ -130,3 +141,20 @@ def references():
 @page_access(RoleCode.ADMIN.value, RoleCode.OPERATOR.value)
 def settings():
     return page("settings.html")
+
+
+@web_bp.get("/superadmin")
+def superadmin():
+    """Platform console. Grant is DB-backed (`User.is_superadmin`), so a
+    workspace ADMIN token still works here — the page swaps to a platform
+    token via /api/v1/superadmin/bootstrap."""
+    try:
+        verify_jwt_in_request()
+    except Exception:
+        return redirect(url_for("web.signin"))
+    from ..models.user import User
+
+    user = User.query.get(current_user_id())
+    if not user or not user.is_superadmin:
+        return redirect(url_for("web.dashboard"))
+    return page("superadmin.html")

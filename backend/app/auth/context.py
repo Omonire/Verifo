@@ -29,5 +29,12 @@ def require_org() -> str:
 
 
 def current_role() -> str | None:
-    tenant = current_tenant()
-    return tenant["role"] if tenant else None
+    claims = get_jwt()
+    if not claims:
+        return None
+    if claims.get("org"):
+        return claims.get("role")
+    # Platform (superadmin) tokens carry a role but no org context.
+    from ..models.common import RoleCode
+
+    return claims.get("role") if claims.get("role") == RoleCode.SUPERADMIN.value else None

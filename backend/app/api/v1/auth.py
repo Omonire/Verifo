@@ -4,7 +4,7 @@ import re
 from flask import Blueprint, current_app, request
 from flask_jwt_extended import get_jwt_identity
 
-from ...auth import issue_app_token, require_auth, require_org
+from ...auth import issue_app_token, issue_superadmin_token, require_auth, require_org
 from ...extensions import db
 from ...models.common import RoleCode, StatusCode
 from ...models.organization import Membership, Organization
@@ -58,6 +58,14 @@ def _default_membership(memberships):
 
 @auth_bp.post("/register")
 def register():
+    from ...models.platform import get_platform_settings
+
+    if not get_platform_settings().get("registration_open", True):
+        return api_error(
+            "REGISTRATION_CLOSED",
+            "Self-serve registration is currently closed. Contact the platform administrator.",
+            status=403,
+        )
     data = request.get_json(silent=True) or {}
     # Frontend sends org_name/org_slug; API contract normalizes to long names.
     normalized = dict(data)
@@ -133,6 +141,27 @@ def login():
 
     memberships = user.active_memberships()
     if not memberships:
+        if user.is_superadmin:
+            user.touch_login()
+            AuditService.commit(
+                organization_id=None,
+                action="USER_LOGIN",
+                entity_type="User",
+                entity_id=user.id,
+                summary=f"{user.email} signed in (platform superadmin).",
+                actor_user_id=user.id,
+                actor_name=user.full_name,
+            )
+            db.session.commit()
+            token = issue_superadmin_token(user.id)
+            return _set_session_cookie(
+                {
+                    "token": token,
+                    "user": user.to_dict(),
+                    "role": RoleCode.SUPERADMIN.value,
+                },
+                token,
+            ), 200
         return api_error(
             "NO_MEMBERSHIP", "This account has no active organization membership.", status=403
         )
@@ -170,13 +199,19 @@ def me():
     user = User.query.get(uid)
     if not user:
         return api_error("NOT_FOUND", "User not found.", status=404)
-    org_id = require_org()
-    org = Organization.query.get(org_id)
-    if not org:
-        return api_error("NOT_FOUND", "Organization not found.", status=404)
     user_detail = user.to_dict()
-    user_detail["organization"] = org.to_dict()
-    user_detail["role"] = get_jwt().get("role")
+    try:
+        org_id = require_org()
+        org = Organization.query.get(org_id)
+        if not org:
+            return api_error("NOT_FOUND", "Organization not found.", status=404)
+        user_detail["organization"] = org.to_dict()
+        user_detail["role"] = get_jwt().get("role")
+    except PermissionError:
+        if not user.is_superadmin:
+            return api_error("NO_MEMBERSHIP", "No workplace selected.", status=403)
+        user_detail["organization"] = None
+        user_detail["role"] = RoleCode.SUPERADMIN.value
     return api_ok({"user": user_detail}), 200
 
 
