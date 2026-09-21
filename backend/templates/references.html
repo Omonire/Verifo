@@ -10,6 +10,17 @@
   </div>
   <div class="actions" id="create-slot"></div>
 </div>
+<div class="card demo-samples">
+  <div class="card-header">
+    <div><h2>Demo samples</h2><p class="text-sm text-muted">Download a genuine and a forged copy, then upload the forged one to watch it flag.</p></div>
+  </div>
+  <div class="actions" style="flex-wrap:wrap">
+    <button type="button" class="btn btn-sm" data-sample="transcript-genuine">Genuine transcript</button>
+    <button type="button" class="btn btn-sm" data-sample="transcript-counterfeit">Forged transcript</button>
+    <button type="button" class="btn btn-sm" data-sample="admission-genuine">Genuine admission</button>
+    <button type="button" class="btn btn-sm" data-sample="admission-counterfeit">Forged admission</button>
+  </div>
+</div>
 <input class="input" id="search" placeholder="Search references…" style="max-width:22rem;margin-bottom:1.5rem">
 <div class="split-2-3">
   <div class="card">
@@ -22,4 +33,41 @@
   <div id="ref-detail"></div>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/js/references.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/references.js"></script>
+<script>
+  (function () {
+    var files = {
+      "transcript-genuine": ["demo-transcript-genuine.pdf", "Genuine transcript"],
+      "transcript-counterfeit": ["demo-transcript-counterfeit.pdf", "Forged transcript"],
+      "admission-genuine": ["demo-admission-genuine.pdf", "Genuine admission"],
+      "admission-counterfeit": ["demo-admission-counterfeit.pdf", "Forged admission"]
+    };
+    document.querySelectorAll("[data-sample]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var kind = btn.getAttribute("data-sample");
+        var name = files[kind][0];
+        var t = Verifo.token();
+        fetch(Verifo.API + "/demo/sample?kind=" + kind, {
+          headers: t ? { Authorization: "Bearer " + t } : {}
+        }).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.blob();
+        }).then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        }).catch(function () {
+          var old = btn.textContent;
+          btn.textContent = "Signed out? Sign in first";
+          btn.classList.add("btn-ghost");
+          setTimeout(function () { btn.textContent = old; btn.classList.remove("btn-ghost"); }, 1800);
+        });
+      });
+    });
+  })();
+</script>{% endblock %}

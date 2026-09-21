@@ -1,7 +1,4 @@
 """Demo sample endpoint + full (SEED_SAMPLE=1) seeding behaviour."""
-import os
-
-import pytest
 
 
 def _login(client, auth):
@@ -37,6 +34,14 @@ def test_demo_sample_unknown_kind_404(client, auth, bearer):
 
 def test_demo_sample_requires_auth(client):
     assert client.get("/api/v1/demo/sample").status_code in (401, 403)
+
+
+def test_references_page_renders_demo_samples(client, auth, bearer):
+    token = _login(client, auth)
+    resp = client.get("/references", headers=bearer(token))
+    assert resp.status_code == 200
+    assert "Demo samples" in resp.get_data(as_text=True)
+    assert 'data-sample="transcript-counterfeit"' in resp.get_data(as_text=True)
 
 
 def test_full_seed_registers_references(app, monkeypatch):
